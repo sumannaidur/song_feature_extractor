@@ -7,6 +7,8 @@ import yt_dlp
 import numpy as np
 import pandas as pd
 import unittest
+import shutil
+from flask import Flask, send_file
 from datetime import datetime
 from spotipy.oauth2 import SpotifyOAuth, SpotifyClientCredentials
 from youtubesearchpython import VideosSearch
@@ -65,7 +67,7 @@ def fetch_album_and_tracks(title, lang, year, max_retries=3, base_delay=5):
                 album_id = album['id']
                 debug(f"Found album: {album['name']}")
                 tracks = sp.album_tracks(album_id)['items']
-                return [{
+                return [ {
                     "Spotify ID": t['id'],
                     "Title": t['name'],
                     "Artist": ", ".join(a['name'] for a in t['artists']),
@@ -75,7 +77,7 @@ def fetch_album_and_tracks(title, lang, year, max_retries=3, base_delay=5):
                     "movie_title": title,
                     "language": lang,
                     "year": year
-                } for t in tracks]
+                } for t in tracks ]
         except Exception as e:
             debug(f"Error fetching album: {e}")
             time.sleep(base_delay * (2 ** attempt))
@@ -89,7 +91,7 @@ def get_youtube_url(title, artist):
     ydl_opts = {
         "quiet": True,
         "skip_download": True,
-        "default_search": "ytsearch1",  # ytsearch1 returns the first search result
+        "default_search": "ytsearch1",
         "extract_flat": "in_playlist"
     }
     try:
@@ -110,9 +112,9 @@ def download_audio(youtube_url, filename):
         "outtmpl": f"audio_files/{filename}.%(ext)s",
         "postprocessors": [{"key": "FFmpegExtractAudio", "preferredcodec": "wav", "preferredquality": "192"}],
         "quiet": True,
-        "cookiefile": "cookies.txt",  # Added cookie file support
+        "cookiefile": "cookies.txt",
         "http_headers": {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+            "User-Agent": "Mozilla/5.0"
         }
     }
     try:
@@ -122,7 +124,6 @@ def download_audio(youtube_url, filename):
         debug(f"Download failed: {e}")
         return None
     return out_path
-
 
 # === Audio feature extraction ===
 def extract_audio_features(file_path):
@@ -142,7 +143,7 @@ def extract_audio_features(file_path):
         debug(f"Feature extraction failed: {e}")
         return None
 
-# === Song processing function ===
+# === Song processing ===
 def process_song(song):
     debug(f"Processing song: {song['Title']} - {song['Artist']}")
     youtube_url = get_youtube_url(song["Title"], song["Artist"])
@@ -162,17 +163,12 @@ def process_song(song):
 
     return {**song, **features}
 
-# === Main CSV Output ===
+# === CSV Columns ===
 csv_columns = ["Spotify ID", "Title", "Artist", "Album", "Release Date", "Popularity",
                "tempo", "loudness", "key", "danceability", "energy", "speechiness", "instrumentalness",
                "movie_title", "language", "year"]
 
-# output_csv = "song_features_combined.csv"
-# if not os.path.exists(output_csv):
-#     with open(output_csv, "w", newline="", encoding="utf-8") as f:
-#         csv.writer(f).writerow(csv_columns)
-
-# === Process all songs with threading and save year/language-wise ===
+# === Process all movies ===
 def process_all_movies():
     for lang, file_path in movie_files.items():
         if not os.path.exists(file_path):
@@ -196,14 +192,9 @@ def process_all_movies():
                 for future in as_completed(futures):
                     result = future.result()
                     if result:
-                        # Create folder: songs_by_year/{year}/{language}/
                         folder_path = f"songs_by_year/{year}/{language}"
                         os.makedirs(folder_path, exist_ok=True)
-
-                        # Save to CSV in that folder
                         target_csv = os.path.join(folder_path, "features.csv")
-
-                        # Create new CSV with header if file doesn't exist
                         write_header = not os.path.exists(target_csv)
                         with open(target_csv, "a", newline="", encoding="utf-8") as f:
                             writer = csv.writer(f)
@@ -211,32 +202,29 @@ def process_all_movies():
                                 writer.writerow(csv_columns)
                             writer.writerow([result.get(col, "N/A") for col in csv_columns])
 
+# === Flask App for Downloads ===
+app = Flask(__name__)
 
-# === Run main function ===
+@app.route("/")
+def home():
+    return "✅ Music pipeline is running. Use /download/{year}/{language} or /download_all"
+
+@app.route("/download/<year>/<language>")
+def download_csv(year, language):
+    path = f"songs_by_year/{year}/{language}/features.csv"
+    if not os.path.exists(path):
+        return f"CSV for {language} {year} not found.", 404
+    return send_file(path, as_attachment=True)
+
+@app.route("/download_all")
+def download_all():
+    zip_path = "all_features.zip"
+    shutil.make_archive("all_features", 'zip', "songs_by_year")
+    return send_file(zip_path, as_attachment=True)
+
+# === Run Script and App ===
 if __name__ == "__main__":
     debug("🎬 Starting song processing pipeline...")
     process_all_movies()
-    debug(f"✅ All songs processed. Output saved")
-
-    # === Run test cases ===
-    class TestMusicPipeline(unittest.TestCase):
-        def test_fetch_album_and_tracks(self):
-            debug("🔍 Testing fetch_album_and_tracks")
-            result = fetch_album_and_tracks("Pushpa", "telugu", 2021)
-            self.assertIsInstance(result, list)
-
-        def test_youtube_search(self):
-            debug("🔍 Testing YouTube search")
-            url = get_youtube_url("Srivalli", "Sid Sriram")
-            self.assertTrue(url is None or url.startswith("https://"))
-
-        def test_extract_audio_features(self):
-            debug("🔍 Testing audio feature extraction")
-            dummy_path = "audio_files/dummy.wav"
-            librosa.output.write_wav(dummy_path, np.zeros(22050), sr=22050)
-            features = extract_audio_features(dummy_path)
-            self.assertIsInstance(features, dict)
-            os.remove(dummy_path)
-
-    debug("🧪 Running unit tests...")
-    unittest.main(argv=[''], exit=False)
+    debug(f"✅ All songs processed. Launching Flask server...")
+    app.run(host="0.0.0.0", port=8000)

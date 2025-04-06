@@ -1,7 +1,9 @@
+Flask
+pandas
+librosa
 spotipy
 yt_dlp
-librosa
-pandas
 numpy
+scipy
+soundfile
 youtube-search-python
-unittest2

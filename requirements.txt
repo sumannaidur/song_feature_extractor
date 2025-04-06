@@ -1,0 +1,7 @@
+spotipy
+yt_dlp
+librosa
+pandas
+numpy
+youtubesearchpython
+unittest2

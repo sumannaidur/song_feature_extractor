@@ -11,6 +11,7 @@ from datetime import datetime
 from spotipy.oauth2 import SpotifyOAuth, SpotifyClientCredentials
 from youtubesearchpython import VideosSearch
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from yt_dlp import YoutubeDL
 
 # === Spotify Credentials Rotation ===
 SPOTIFY_CREDENTIALS = [
@@ -84,13 +85,20 @@ def fetch_album_and_tracks(title, lang, year, max_retries=3, base_delay=5):
 # === Search YouTube ===
 def get_youtube_url(title, artist):
     query = f"{title} {artist} official audio"
+    debug(f"Searching YouTube via yt_dlp: {query}")
+    ydl_opts = {
+        "quiet": True,
+        "skip_download": True,
+        "default_search": "ytsearch1",  # ytsearch1 returns the first search result
+        "extract_flat": "in_playlist"
+    }
     try:
-        debug(f"Searching YouTube: {query}")
-        result = VideosSearch(query, limit=1).result()
-        if result and result["result"]:
-            return result["result"][0]["link"]
+        with YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(query, download=False)
+            if "entries" in info and info["entries"]:
+                return info["entries"][0]["url"]
     except Exception as e:
-        debug(f"YouTube search failed: {e}")
+        debug(f"YouTube search via yt_dlp failed: {e}")
     return None
 
 # === Download audio ===

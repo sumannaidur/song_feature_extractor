@@ -3,5 +3,5 @@ yt_dlp
 librosa
 pandas
 numpy
-youtubesearchpython
+youtube-search-python
 unittest2

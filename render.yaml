@@ -1,7 +1,10 @@
 services:
   - type: web
-    name: music-pipeline
-    runtime: python
+    name: emotion-music-pipeline
+    env: python
     buildCommand: pip install -r requirements.txt
     startCommand: python main.py
     plan: free
+    envVars:
+      - key: PORT
+        value: 8000

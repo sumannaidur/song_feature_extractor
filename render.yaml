@@ -2,19 +2,16 @@ services:
   - type: web
     name: music-pipeline
     env: python
-    region: oregon
-    plan: free
-    buildCommand: |
-      pip install -r requirements.txt
+    buildCommand: pip install -r requirements.txt
     startCommand: python main.py
     envVars:
-      - key: PORT
-        value: 8000
+      - key: FLASK_ENV
+        value: production
+    plan: free
     autoDeploy: true
-
-# Optional: Install FFmpeg & audio dependencies
-  - type: static
-    name: apt-dependencies
-    buildCommand: |
-      apt-get update
-      apt-get install -y ffmpeg libsndfile1
+    buildFilter:
+      paths:
+        - main.py
+        - cookies.txt
+        - requirements.txt
+        - movies_by_language/

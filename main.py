@@ -216,7 +216,7 @@ def process_all_movies():
 if __name__ == "__main__":
     debug("🎬 Starting song processing pipeline...")
     process_all_movies()
-    debug(f"✅ All songs processed. Output saved to: {output_csv}")
+    debug(f"✅ All songs processed. Output saved")
 
     # === Run test cases ===
     class TestMusicPipeline(unittest.TestCase):

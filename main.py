@@ -9,8 +9,20 @@ import pandas as pd
 from datetime import datetime
 from requests.exceptions import RequestException
 from spotipy.oauth2 import SpotifyOAuth, SpotifyClientCredentials
+import shutil
 
 YOUTUBE_COOKIE_PATH = "/etc/secrets/youtube_cookies.txt"
+TEMP_COOKIE_PATH = "/tmp/youtube_cookies.txt"
+
+# === Copy YouTube cookie file to writable temp dir on Render
+if os.path.exists(YOUTUBE_COOKIE_PATH):
+    try:
+        shutil.copy(YOUTUBE_COOKIE_PATH, TEMP_COOKIE_PATH)
+        print("✅ YouTube cookie file copied to /tmp.")
+    except Exception as e:
+        print(f"❌ Failed to copy cookie file: {e}")
+else:
+    print("❌ YouTube cookie file missing!")
 # === Spotify Credentials Rotation ===
 SPOTIFY_CREDENTIALS = [
     {"client_id": "15adf67aec934fe792bee0d467742326", "client_secret": "d03b2411aad24b8e80f3257660f9f10f"},
@@ -84,7 +96,7 @@ def get_youtube_url(title, artist):
         "default_search": "ytsearch1",
         "skip_download": True,
         "extract_flat": "in_playlist",
-        "cookiefile": YOUTUBE_COOKIE_PATH,
+        "cookiefile": TEMP_COOKIE_PATH,
           # Use cookie file
         # Add proxy option if YouTube is blocking Render's IP
         # "proxy": "socks5://user:pass@host:port",
@@ -106,7 +118,7 @@ def download_audio(youtube_url, filename):
         "outtmpl": f"audio_files/{filename}.%(ext)s",
         "postprocessors": [{"key": "FFmpegExtractAudio", "preferredcodec": "wav", "preferredquality": "192"}],
         "quiet": True,
-        "cookiefile": YOUTUBE_COOKIE_PATH,
+        "cookiefile": TEMP_COOKIE_PATH,
         # Use cookie file
         # Add proxy option if needed
         # "proxy": "socks5://user:pass@host:port",

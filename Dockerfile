@@ -45,7 +45,7 @@ RUN pip install --upgrade pip && \
     pip install -r requirements.txt
 
 # Download Chromium via pyppeteer
-RUN python -m pyppeteer install
+RUN python -c "import pyppeteer; pyppeteer.chromium_downloader.download_chromium()"
 
 # Expose port (if needed)
 EXPOSE 8000

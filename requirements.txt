@@ -1,6 +1,5 @@
-spotipy
-pandas
-librosa
-numpy
-pyppeteer
-asyncio
+Flask==2.3.3
+spotipy==2.23.0
+pandas==2.1.0
+plotly==5.17.0
+gunicorn==21.2.0

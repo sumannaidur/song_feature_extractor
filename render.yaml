@@ -1,11 +1,10 @@
 services:
   - type: web
-    name: audio-feature-extractor
-    runtime: docker
-    repo: https://github.com/sumannaidur/song_feature_extractor.git
-    branch: main
-    plan: free
-    env: docker
-    dockerfilePath: Dockerfile
-    buildCommand: ""
-    startCommand: python puppy.py
+    name: spotify-movie-tracks
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.0
+    healthCheckPath: /api/stats

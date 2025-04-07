@@ -66,7 +66,7 @@ def fetch_album_and_tracks(title, lang, year, max_retries=3, base_delay=5):
                 debug(f"✅ Found album: {album['name']} ({album_id})")
                 tracks = sp.album_tracks(album_id)['items']
                 debug(f"🎵 Found {len(tracks)} track(s).")
-                return [{
+                return [ {
                     "Spotify ID": t['id'],
                     "Title": t['name'],
                     "Artist": ", ".join(a['name'] for a in t['artists']),
@@ -76,7 +76,7 @@ def fetch_album_and_tracks(title, lang, year, max_retries=3, base_delay=5):
                     "movie_title": title,
                     "language": lang,
                     "year": year
-                } for t in tracks]
+                } for t in tracks ]
             else:
                 debug("⚠️ No album found on Spotify.")
         except Exception as e:
@@ -87,30 +87,46 @@ def fetch_album_and_tracks(title, lang, year, max_retries=3, base_delay=5):
 
 # === YouTube Search ===
 def get_youtube_url(title, artist):
-    query = f"{title} {artist} official audio"
-    debug(f"🔎 Searching YouTube for: {query}")
-    try:
-        ydl_opts = {
-            'quiet': True,
-            'noplaylist': True,
-            'default_search': 'ytsearch1',
-            'extract_flat': True,
-        }
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            result = ydl.extract_info(query, download=False)
-            if 'entries' in result and result['entries']:
-                url = f"https://www.youtube.com/watch?v={result['entries'][0]['id']}"
-                debug(f"🔗 YouTube video found: {url}")
-                return url
-    except Exception as e:
-        debug(f"❌ YouTube search failed: {e}")
+    search_queries = [
+        f"{title} {artist} audio song",
+        f"{title} {artist} video song",
+        f"{title} {artist} full song"
+    ]
+    for query in search_queries:
+        debug(f"🔎 Searching YouTube for: {query}")
+        try:
+            ydl_opts = {
+                'quiet': True,
+                'format': 'bestaudio/best',
+                'noplaylist': True,
+                'default_search': 'ytsearch',
+                'skip_download': True
+            }
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                result = ydl.extract_info(query, download=False)
+                if 'entries' in result and result['entries']:
+                    first_video = result['entries'][0]
+                    url = f"https://www.youtube.com/watch?v={first_video['id']}"
+                    debug(f"🔗 YouTube video found: {url}")
+                    return url
+        except Exception as e:
+            debug(f"❌ YouTube search failed for query [{query}]: {e}")
     return None
 
 # === Audio Download ===
 def download_audio(youtube_url, filename):
     debug(f"📥 Downloading audio for: {youtube_url}")
     out_path = f"audio_files/{filename}.wav"
-    ...
+    ydl_opts = {
+        'format': 'bestaudio/best',
+        'outtmpl': out_path,
+        'quiet': True,
+        'postprocessors': [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'wav',
+            'preferredquality': '192',
+        }],
+    }
     try:
         with YoutubeDL(ydl_opts) as ydl:
             debug(f"🎬 yt-dlp download started for {filename}")

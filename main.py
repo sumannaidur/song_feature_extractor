@@ -38,10 +38,10 @@ os.makedirs("songs_by_year", exist_ok=True)
 
 # === Movie input files
 movie_files = {
-    "telugu": "telugu_movies.csv",
-    "hindi": "hindi_movies.csv",
-    "kannada": "kannada_movies.csv",
-    "tamil": "tamil_movies.csv"
+    "telugu": "movies_by_language/telugu_movies.csv",
+    "hindi": "movies_by_language/hindi_movies.csv",
+    "kannada": "movies_by_language/kannada_movies.csv",
+    "tamil": "movies_by_language/tamil_movies.csv"
 }
 
 # === Fetch album and tracks

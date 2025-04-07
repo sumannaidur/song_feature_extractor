@@ -1,2 +1,7 @@
+librosa
+numpy
+pandas
+spotipy
+yt-dlp
 pyppeteer==1.0.2
 aiohttp

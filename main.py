@@ -36,7 +36,10 @@ auth_sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=SPOTIFY_CREDENTIAL
 os.makedirs("csvs", exist_ok=True)
 os.makedirs("audio_files", exist_ok=True)
 os.makedirs("songs_by_year", exist_ok=True)
-
+if os.path.exists(YOUTUBE_COOKIE_PATH):
+    print("✅ YouTube cookie file found.")
+else:
+    print("❌ YouTube cookie file missing!")
 # === Movie input files
 movie_files = {
     "telugu": "movies_by_language/telugu_movies.csv",

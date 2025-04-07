@@ -7,10 +7,10 @@ import spotipy
 import numpy as np
 import pandas as pd
 import subprocess
-import random
 from datetime import datetime
 from spotipy.oauth2 import SpotifyClientCredentials
-
+import asyncio
+from pyppeteer import launch
 # === Setup Paths and Folders
 os.makedirs("csvs", exist_ok=True)
 os.makedirs("audio_files", exist_ok=True)
@@ -68,128 +68,56 @@ def fetch_album_and_tracks(title, lang, year, retries=3):
             sp = get_spotify_client(attempt)
     return []
 
-# === YouTube Search via yt-dlp with anti-bot detection
-def get_youtube_url(title, artist):
+# === Use pyppeteer to get YouTube video URL
+async def get_stream_url(title, artist):
     query = f"{title} {artist} official audio"
-    try:
-        print(f"🔍 Searching YouTube for: {query}")
-        
-        # Configure yt-dlp with additional options to avoid bot detection
-        command = [
-            "yt-dlp",
-            f"ytsearch1:{query}",
-            "--get-url",
-            "--no-check-certificate",
-            "--user-agent", get_random_user_agent(),
-            "--sleep-interval", "2",
-            "--max-sleep-interval", "5",
-            "--force-ipv4"
-        ]
-        
-        result = subprocess.check_output(command, text=True)
-        url = result.strip()
-        print(f"🎯 YouTube URL: {url}")
-        return url
-    except subprocess.CalledProcessError as e:
-        print(f"❌ YouTube search failed: {e}")
-        # Try alternative source if YouTube fails
-        return get_alternative_audio_source(title, artist)
+    search_url = f"https://www.youtube.com/results?search_query={query.replace(' ', '+')}"
+    print(f"🌐 Searching on YouTube: {query}")
 
-# Random user agent to avoid detection
-def get_random_user_agent():
-    user_agents = [
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36",
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
-        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36",
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/115.0",
-        "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1"
-    ]
-    return random.choice(user_agents)
+    browser = await launch(headless=True, args=['--no-sandbox'])
+    page = await browser.newPage()
+    await page.goto(search_url, timeout=60000)
 
-# Try alternative audio sources if YouTube fails
-def get_alternative_audio_source(title, artist):
-    # Try Soundcloud with yt-dlp
+    video_id = await page.evaluate('''() => {
+        const el = document.querySelector('a#video-title');
+        return el ? el.href.split('v=')[1].split('&')[0] : null;
+    }''')
+
+    await browser.close()
+
+    if not video_id:
+        print("❌ No video found.")
+        return None
+
+    return f"https://www.youtube.com/watch?v={video_id}"
+
+# === Wrapper for sync call
+def get_youtube_url(title, artist):
     try:
-        query = f"{title} {artist}"
-        print(f"🔍 Searching SoundCloud for: {query}")
-        result = subprocess.check_output([
-            "yt-dlp", 
-            f"scsearch1:{query}", 
-            "--get-url",
-            "--user-agent", get_random_user_agent()
-        ], text=True)
-        url = result.strip()
-        print(f"🎯 SoundCloud URL: {url}")
-        return url
-    except subprocess.CalledProcessError:
-        # Try other fallback methods here
-        pass
-    
-    # If all else fails, check if there's a preview_url from Spotify
-    try:
-        results = sp.search(q=f"track:{title} artist:{artist}", type='track', limit=1)
-        if results['tracks']['items'] and results['tracks']['items'][0]['preview_url']:
-            preview_url = results['tracks']['items'][0]['preview_url']
-            print(f"🎯 Using Spotify preview URL: {preview_url}")
-            return preview_url
+        return asyncio.get_event_loop().run_until_complete(get_stream_url(title, artist))
     except Exception as e:
-        print(f"❌ Spotify preview fetch error: {e}")
-    
-    return None
+        print(f"❌ Pyppeteer error: {e}")
+        return None
 
-# === Download audio
-def download_audio(url, filename):
+# === Use yt-dlp + ffmpeg to stream and save audio
+def download_audio(youtube_url, filename):
     out_path = f"audio_files/{filename}.wav"
     try:
-        print(f"⬇️ Downloading audio for: {url}")
-        temp_audio = f"audio_files/{filename}.m4a"
+        print(f"🎯 Fetching stream URL for: {youtube_url}")
+        stream_url = subprocess.check_output([
+            "yt-dlp", "-f", "bestaudio", "-g", youtube_url
+        ], text=True).strip()
 
-        # Add additional parameters to avoid detection
+        print(f"⬇️ Downloading audio with FFmpeg to: {out_path}")
         subprocess.run([
-            "yt-dlp", 
-            "-x", 
-            "--audio-format", "m4a", 
-            "-o", temp_audio,
-            "--no-check-certificate",
-            "--user-agent", get_random_user_agent(),
-            "--sleep-interval", "1",
-            "--max-sleep-interval", "3",
-            url
-        ], check=True)
-
-        subprocess.run([
-            "ffmpeg", "-y", "-i", temp_audio,
+            "ffmpeg", "-y", "-i", stream_url,
             "-vn", "-acodec", "pcm_s16le", "-ar", "44100", "-ac", "2",
             out_path
         ], check=True)
 
-        if os.path.exists(temp_audio):
-            os.remove(temp_audio)
-
         return out_path
     except subprocess.CalledProcessError as e:
-        print(f"❌ Download failed: {e}")
-        # If it's a Spotify preview URL, download directly
-        if url and "spotify.com" in url:
-            try:
-                import requests
-                r = requests.get(url)
-                with open(temp_audio, 'wb') as f:
-                    f.write(r.content)
-                
-                subprocess.run([
-                    "ffmpeg", "-y", "-i", temp_audio,
-                    "-vn", "-acodec", "pcm_s16le", "-ar", "44100", "-ac", "2",
-                    out_path
-                ], check=True)
-                
-                if os.path.exists(temp_audio):
-                    os.remove(temp_audio)
-                
-                return out_path
-            except Exception as e2:
-                print(f"❌ Direct download failed: {e2}")
-        
+        print(f"❌ Audio download failed: {e}")
         return None
 
 # === Extract features
@@ -210,7 +138,6 @@ def extract_audio_features(file_path):
         print(f"❌ Feature extraction failed: {e}")
         return None
 
-# === Song processing
 def process_song(song):
     print(f"\n🎵 Processing: {song['Title']} by {song['Artist']}")
     youtube_url = get_youtube_url(song["Title"], song["Artist"])
@@ -228,6 +155,7 @@ def process_song(song):
 
     return {**song, **features} if features else None
 
+
 # === Output columns
 csv_columns = [
     "Spotify ID", "Title", "Artist", "Album", "Release Date", "Popularity",
@@ -240,8 +168,17 @@ if not os.path.exists(output_csv):
     with open(output_csv, "w", newline="", encoding="utf-8") as f:
         csv.writer(f).writerow(csv_columns)
 
-# === Rate limiting and retries
-def process_with_rate_limiting(df):
+# === Run through all songs
+for lang, file_path in movie_files.items():
+    if not os.path.exists(file_path):
+        print(f"⚠️ Missing file: {file_path}")
+        continue
+
+    df = pd.read_csv(file_path)
+    if not {'Title', 'Release Date', 'Language'}.issubset(df.columns):
+        print(f"⚠️ Skipping invalid file: {file_path}")
+        continue
+
     for _, row in df.iterrows():
         title, release, language = row['Title'], row['Release Date'], row['Language']
         try:
@@ -256,23 +193,5 @@ def process_with_rate_limiting(df):
             if processed:
                 with open(output_csv, "a", newline="", encoding="utf-8") as f:
                     csv.writer(f).writerow([processed.get(col, "N/A") for col in csv_columns])
-            
-            # Introduce random delays between requests to avoid detection
-            sleep_time = random.uniform(5, 15)
-            print(f"😴 Sleeping for {sleep_time:.2f} seconds to avoid detection...")
-            time.sleep(sleep_time)
-
-# === Run through all songs
-for lang, file_path in movie_files.items():
-    if not os.path.exists(file_path):
-        print(f"⚠️ Missing file: {file_path}")
-        continue
-
-    df = pd.read_csv(file_path)
-    if not {'Title', 'Release Date', 'Language'}.issubset(df.columns):
-        print(f"⚠️ Skipping invalid file: {file_path}")
-        continue
-    
-    process_with_rate_limiting(df)
 
 print("\n✅ All songs processed! Output saved to:", output_csv)

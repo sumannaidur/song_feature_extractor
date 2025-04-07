@@ -1,17 +1,5 @@
 services:
   - type: web
-    name: music-pipeline
-    env: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: python main.py
-    envVars:
-      - key: FLASK_ENV
-        value: production
+    name: song-feature-extractor
+    env: docker
     plan: free
-    autoDeploy: true
-    buildFilter:
-      paths:
-        - main.py
-        - cookies.txt
-        - requirements.txt
-        - movies_by_language/

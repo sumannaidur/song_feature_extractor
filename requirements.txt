@@ -1,9 +1,2 @@
-Flask
-pandas
-librosa
-spotipy
-yt_dlp
-numpy
-scipy
-soundfile
-youtube-search-python
+pyppeteer==1.0.2
+aiohttp

@@ -94,26 +94,69 @@ def get_youtube_url(title, artist):
     return None
 
 # === Download audio ===
+from yt_dlp import YoutubeDL
+
+def debug(msg):
+    print("[DEBUG]", msg)
+
 def download_audio(youtube_url, filename):
     debug(f"Downloading audio: {filename}")
     out_path = f"audio_files/{filename}.wav"
+
+    # STEP 1: Your YouTube cookies directly as a dictionary
+    youtube_cookies = {
+        "LOGIN_INFO": "AFmmF2swRgIhAJI1WfyBPC0d04lkpumc23b866givfDEmW1zlMashTs5AiEAuP2K51kNRvgT470Glei80S6-CkrhllqC1ZTIKwZH_uQ:QUQ3MjNmd0hyR3VNSXBZdlpEYTZmcWZwckIzSFBsRk9PQmt3XzVGSHhKY3dvSVdGV2hPanF4TVI5OVYzdFNHaERCYXBlTTlDMTlsRV8ybjhzN0cza1pzakF4M2ZUdDJjMjl4WTRna1Q1bVQyT0VsZU1NT3NXQTlaMElldHFyWkZIWjZ3eGlwZkpoOGJZTkVjdEU0c3Bhb3g2UkE1ckZCQnZR",
+        "SID": "g.a000uwgI99zhSiJzR_jcyRXlgUl9gyXcliYs2KkIXGlulF8Wb-HjjPcW0sdXD6zsrDZarJEQuAACgYKAewSARcSFQHGX2MidL-a2Ks0E-zW9UASSPjs4xoVAUF8yKr90xZ3Dh_lMZJfsAC076BK0076",
+        "__Secure-1PSID": "g.a000uwgI99zhSiJzR_jcyRXlgUl9gyXcliYs2KkIXGlulF8Wb-HjytxN9nH5y0D8tONitsvniwACgYKAZMSARcSFQHGX2MiIosMhb3k8BEzrJ4p47VmgxoVAUF8yKqkwHf8rrtas1UEjrpVGSTS0076",
+        "__Secure-3PSID": "g.a000uwgI99zhSiJzR_jcyRXlgUl9gyXcliYs2KkIXGlulF8Wb-HjORMsat7HLuDCUjecTCHP3AACgYKAYUSARcSFQHGX2MiYSjtGGSD2_GrIz_oQXA4MxoVAUF8yKqA4dSDujwuFG1WKHDOivym0076",
+        "HSID": "A6-iAxVfavO7x6Ql2",
+        "SSID": "AjFGSEM_EN46JSxUz",
+        "APISID": "uSJF4HaKyJUdoEUd/Ayh69QP_Qvb5MZIOd",
+        "SAPISID": "12v-BWeccGF_Df5Y/ARfpBm0BqQzHdD2pU",
+        "__Secure-1PAPISID": "12v-BWeccGF_Df5Y/ARfpBm0BqQzHdD2pU",
+        "__Secure-3PAPISID": "12v-BWeccGF_Df5Y/ARfpBm0BqQzHdD2pU",
+        "PREF": "f6=40000000&tz=Asia.Calcutta&f7=100",
+        "__Secure-1PSIDTS": "sidts-CjEB7pHptRkkHF9ix1n3khfZNCN7N0QYOj1XmAEFOB42_ga0ZSuYxFzJyIi7mHe9s7U_EAA",
+        "__Secure-3PSIDTS": "sidts-CjEB7pHptRkkHF9ix1n3khfZNCN7N0QYOj1XmAEFOB42_ga0ZSuYxFzJyIi7mHe9s7U_EAA",
+        "SIDCC": "AKEyXzVmYb_rARFVJGbHo5lIsj2M5r_QqGqa1y289z_YhXErCeT0j5KEoB70tpsIFPo83K6H_g",
+        "__Secure-1PSIDCC": "AKEyXzWfvx5wVaZJ7fRglKS0hxKrBX2uXbAhw5Ye-GsVlWh6DT_CVl-Zax6tVF6UnkkP244mQ04",
+        "__Secure-3PSIDCC": "AKEyXzWzwhRUdxPp9-prRAGoNVBJ7TEI1BhGGEybcYU6mcJOqAaG59Cb2PJXMQnRJZMTIq3PlQ",
+        "VISITOR_INFO1_LIVE": "9xiEYslIzNQ",
+        "VISITOR_PRIVACY_METADATA": "CgJJThIEGgAgGw==",
+        "__Secure-ROLLOUT_TOKEN": "CJqkyOiw_IeJNBDml9b7js2KAxi-pcq3ksOMAw==",
+        "YSC": "eGN097RvVyc"
+    }
+
+    # STEP 2: Convert cookies to header format
+    cookie_string = "; ".join([f"{k}={v}" for k, v in youtube_cookies.items()])
+
+    # STEP 3: yt-dlp options
     ydl_opts = {
         "format": "bestaudio/best",
-        "outtmpl": f"audio_files/{filename}.%(ext)s",
-        "postprocessors": [{"key": "FFmpegExtractAudio", "preferredcodec": "wav", "preferredquality": "192"}],
+        "outtmpl": f"{out_path}",
+        "postprocessors": [{
+            "key": "FFmpegExtractAudio",
+            "preferredcodec": "wav",
+            "preferredquality": "192"
+        }],
         "quiet": True,
-        "cookiefile": "cookies.txt",  # Added cookie file support
+        "noplaylist": True,
         "http_headers": {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+            "Cookie": cookie_string
         }
     }
+
+    # STEP 4: Download
     try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        with YoutubeDL(ydl_opts) as ydl:
             ydl.download([youtube_url])
     except Exception as e:
         debug(f"Download failed: {e}")
         return None
+
     return out_path
+
 
 
 # === Audio feature extraction ===

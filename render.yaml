@@ -1,5 +1,11 @@
 services:
   - type: web
-    name: song-feature-extractor
-    env: docker
+    name: audio-feature-extractor
+    runtime: docker
+    repo: https://github.com/sumannaidur/song_feature_extractor.git
+    branch: main
     plan: free
+    env: docker
+    dockerfilePath: Dockerfile
+    buildCommand: ""
+    startCommand: python puppy.py

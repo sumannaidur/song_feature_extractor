@@ -2,6 +2,7 @@ import os
 import csv
 import time
 import librosa
+import asyncio
 import shutil
 import spotipy
 import numpy as np
@@ -9,6 +10,8 @@ import pandas as pd
 import subprocess
 from datetime import datetime
 from spotipy.oauth2 import SpotifyClientCredentials
+from pyppeteer import launch
+from pyppeteer.chromium_downloader import chromium_executable
 
 # === Setup Paths and Folders
 os.makedirs("csvs", exist_ok=True)
@@ -38,9 +41,9 @@ movie_files = {
     "tamil": "movies_by_language/tamil_movies.csv"
 }
 
-# === Spotify fetch
+# === Fetch Album and Tracks from Spotify
 def fetch_album_and_tracks(title, lang, year, retries=3):
-    global sp
+    global sp  # Fix for the UnboundLocalError
     query = f"{title} {lang} {year}"
     for attempt in range(retries):
         try:
@@ -64,52 +67,79 @@ def fetch_album_and_tracks(title, lang, year, retries=3):
         except Exception as e:
             print(f"❌ Spotify fetch error: {e}")
             time.sleep(2 ** attempt)
-            sp = get_spotify_client(attempt)
+            sp = get_spotify_client(attempt)  # switch client
     return []
 
-# === YouTube Search via yt-dlp
-def get_youtube_url(title, artist):
-    query = f"{title} {artist} official audio"
+# === Pyppeteer-based YouTube Search
+async def fetch_youtube_url(query):
     try:
         print(f"🔍 Searching YouTube for: {query}")
-        result = subprocess.check_output([
-            "yt-dlp",
-            f"ytsearch1:{query}",
-            "--get-url"
-        ], text=True)
-        url = result.strip()
+
+        # ✅ Skip downloading Chromium; use local Chrome
+        chrome_path = "C:/Program Files/Google/Chrome/Application/chrome.exe"  # Adjust this if needed
+        if not os.path.exists(chrome_path):
+            raise FileNotFoundError(f"Chrome not found at: {chrome_path}")
+
+        browser = await launch(
+            headless=True,
+            executablePath=chrome_path,
+            args=["--no-sandbox"]
+        )
+        page = await browser.newPage()
+        await page.goto(f"https://www.youtube.com/results?search_query={query.replace(' ', '+')}")
+        await page.waitForSelector("ytd-video-renderer a#thumbnail", timeout=10000)
+        url = await page.evaluate('''() => {
+            const video = document.querySelector("ytd-video-renderer a#thumbnail");
+            return video ? video.href : null;
+        }''')
+        await browser.close()
         print(f"🎯 YouTube URL: {url}")
         return url
-    except subprocess.CalledProcessError as e:
+    except Exception as e:
         print(f"❌ YouTube search failed: {e}")
         return None
 
-# === Download audio
+
+def get_youtube_url(title, artist):
+    query = f"{title} {artist} official audio"
+    try:
+        return asyncio.run(fetch_youtube_url(query))  # Replaces deprecated get_event_loop
+    except Exception as e:
+        print(f"❌ Async error: {e}")
+        return None
+
+
+
+# === Download Audio Using ffmpeg From YouTube URL
 def download_audio(youtube_url, filename):
     out_path = f"audio_files/{filename}.wav"
     try:
         print(f"⬇️ Downloading audio via yt-dlp for: {youtube_url}")
         temp_audio = f"audio_files/{filename}.m4a"
 
+        # Use yt-dlp to download the best audio
         subprocess.run([
             "yt-dlp", "-x", "--audio-format", "m4a", "-o", temp_audio, youtube_url
         ], check=True)
 
+        # Convert to WAV using ffmpeg
         subprocess.run([
             "ffmpeg", "-y", "-i", temp_audio,
             "-vn", "-acodec", "pcm_s16le", "-ar", "44100", "-ac", "2",
             out_path
         ], check=True)
 
+        # Cleanup intermediate file
         if os.path.exists(temp_audio):
             os.remove(temp_audio)
 
         return out_path
     except subprocess.CalledProcessError as e:
-        print(f"❌ Download failed: {e}")
+        print(f"❌ yt-dlp or ffmpeg download failed: {e}")
         return None
 
-# === Extract features
+
+# === Extract Audio Features Using Librosa
 def extract_audio_features(file_path):
     try:
         print(f"🎧 Extracting features from: {file_path}")
@@ -127,7 +157,7 @@ def extract_audio_features(file_path):
         print(f"❌ Feature extraction failed: {e}")
         return None
 
-# === Song processing
+# === Main Song Processing
 def process_song(song):
     print(f"\n🎵 Processing: {song['Title']} by {song['Artist']}")
     youtube_url = get_youtube_url(song["Title"], song["Artist"])
@@ -145,7 +175,7 @@ def process_song(song):
 
     return {**song, **features} if features else None
 
-# === Output columns
+# === Output Columns
 csv_columns = [
     "Spotify ID", "Title", "Artist", "Album", "Release Date", "Popularity",
     "tempo", "loudness", "key", "danceability", "energy", "speechiness", "instrumentalness",
@@ -157,7 +187,7 @@ if not os.path.exists(output_csv):
     with open(output_csv, "w", newline="", encoding="utf-8") as f:
         csv.writer(f).writerow(csv_columns)
 
-# === Run through all songs
+# === Iterate Movie Data and Process Songs
 for lang, file_path in movie_files.items():
     if not os.path.exists(file_path):
         print(f"⚠️ Missing file: {file_path}")

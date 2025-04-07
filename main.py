@@ -92,6 +92,16 @@ def get_youtube_url(title, artist):
         f"{title} {artist} video song",
         f"{title} {artist} full song"
     ]
+    
+    # Use the same cookies as in the download_audio function
+    youtube_cookies = {
+        "LOGIN_INFO": "AFmmF2swRgIhAJI1WfyBPC0d04lkpumc23b866givfDEmW1zlMashTs5AiEAuP2K51kNRvgT470Glei80S6-CkrhllqC1ZTIKwZH_uQ:QUQ3MjNmd0hyR3VNSXBZdlpEYTZmcWZwckIzSFBsRk9PQmt3XzVGSHhKY3dvSVdGV2hPanF4TVI5OVYzdFNHaERCYXBlTTlDMTlsRV8ybjhzN0cza1pzakF4M2ZUdDJjMjl4WTRna1Q1bVQyT0VsZU1NT3NXQTlaMElldHFyWkZIWjZ3eGlwZkpoOGJZTkVjdEU0c3Bhb3g2UkE1ckZCQnZR",
+        # Include all other cookies from the download_audio function
+    }
+    
+    # Convert cookies to header format
+    cookie_string = "; ".join([f"{k}={v}" for k, v in youtube_cookies.items()])
+    
     for query in search_queries:
         debug(f"🔎 Searching YouTube for: {query}")
         try:
@@ -100,7 +110,11 @@ def get_youtube_url(title, artist):
                 'format': 'bestaudio/best',
                 'noplaylist': True,
                 'default_search': 'ytsearch',
-                'skip_download': True
+                'skip_download': True,
+                'http_headers': {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+                    'Cookie': cookie_string
+                }
             }
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 result = ydl.extract_info(query, download=False)
@@ -112,7 +126,6 @@ def get_youtube_url(title, artist):
         except Exception as e:
             debug(f"❌ YouTube search failed for query [{query}]: {e}")
     return None
-
 # === Audio Download ===
 
 def download_audio(youtube_url, filename):

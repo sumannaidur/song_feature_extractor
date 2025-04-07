@@ -2,3 +2,5 @@ spotipy
 pandas
 librosa
 numpy
+pyppeteer
+asyncio

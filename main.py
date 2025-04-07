@@ -79,7 +79,10 @@ def get_youtube_url(title, artist):
         "quiet": True,
         "default_search": "ytsearch1",
         "skip_download": True,
-        "extract_flat": "in_playlist"
+        "extract_flat": "in_playlist",
+        "cookiefile": "youtube_cookies.txt",  # Use cookie file
+        # Add proxy option if YouTube is blocking Render's IP
+        # "proxy": "socks5://user:pass@host:port",
     }
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -90,23 +93,26 @@ def get_youtube_url(title, artist):
         print(f"❌ YouTube search failed: {e}")
     return None
 
-# === Download YouTube Audio
+# === Download YouTube Audio with cookies for Render environment
 def download_audio(youtube_url, filename):
     out_path = f"audio_files/{filename}.wav"
     ydl_opts = {
         "format": "bestaudio/best",
         "outtmpl": f"audio_files/{filename}.%(ext)s",
         "postprocessors": [{"key": "FFmpegExtractAudio", "preferredcodec": "wav", "preferredquality": "192"}],
-        "quiet": True
+        "quiet": True,
+        "cookiefile": "youtube_cookies.txt",  # Use cookie file
+        # Add proxy option if needed
+        # "proxy": "socks5://user:pass@host:port",
     }
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([youtube_url])
+            return out_path
     except Exception as e:
         print(f"❌ Failed to download: {e}")
         return None
-    return out_path
-
+    
 # === Extract Audio Features
 def extract_audio_features(file_path):
     try:

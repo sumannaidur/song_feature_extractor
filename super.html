@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Music Processing Monitor</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f5f7fa;
+      color: #333;
+    }
+    header {
+      background-color: #4a148c;
+      color: white;
+      padding: 1rem 2rem;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 1rem;
+    }
+    .dashboard {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    .card {
+      background: white;
+      border-radius: 8px;
+      padding: 1rem;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    .stat {
+      font-size: 2rem;
+      font-weight: bold;
+      color: #4a148c;
+    }
+    .label {
+      color: #666;
+      font-size: 0.9rem;
+    }
+    .log-container {
+      background: white;
+      border-radius: 8px;
+      padding: 1rem;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      height: 400px;
+      overflow-y: auto;
+    }
+    .log {
+      margin: 0;
+      padding: 0;
+      list-style-type: none;
+      font-family: monospace;
+      font-size: 0.9rem;
+    }
+    .log li {
+      padding: 0.5rem 0;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .log-error {
+      color: #d32f2f;
+    }
+    .log-success {
+      color: #388e3c;
+    }
+    .log-info {
+      color: #1976d2;
+    }
+    .progress-container {
+      width: 100%;
+      background-color: #f0f0f0;
+      border-radius: 4px;
+      margin: 0.5rem 0;
+    }
+    .progress-bar {
+      height: 10px;
+      background-color: #4a148c;
+      border-radius: 4px;
+      width: 0%;
+      transition: width 0.5s ease;
+    }
+    .songs-list {
+      height: 400px;
+      overflow-y: auto;
+    }
+    .song-item {
+      padding: 0.75rem;
+      border-bottom: 1px solid #f0f0f0;
+      display: flex;
+      justify-content: space-between;
+    }
+    .song-item:hover {
+      background-color: #f9f9f9;
+    }
+    .status-badge {
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.8rem;
+    }
+    .status-processing {
+      background-color: #fff9c4;
+      color: #ff6f00;
+    }
+    .status-success {
+      background-color: #e8f5e9;
+      color: #388e3c;
+    }
+    .status-error {
+      background-color: #ffebee;
+      color: #d32f2f;
+    }
+    .language-filter {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+    .language-filter button {
+      background: white;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+    }
+    .language-filter button.active {
+      background-color: #4a148c;
+      color: white;
+      border-color: #4a148c;
+    }
+    .tabs {
+      display: flex;
+      margin-bottom: 1rem;
+      border-bottom: 1px solid #ddd;
+    }
+    .tab {
+      padding: 0.75rem 1.5rem;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+    }
+    .tab.active {
+      border-bottom: 2px solid #4a148c;
+      color: #4a148c;
+      font-weight: bold;
+    }
+    .tab-content {
+      display: none;
+    }
+    .tab-content.active {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Music Processing Monitor</h1>
+  </header>
+  
+  <div class="container">
+    <div class="dashboard">
+      <div class="card">
+        <div class="label">Processed Songs</div>
+        <div class="stat" id="processed-count">0</div>
+        <div class="progress-container">
+          <div class="progress-bar" id="progress-bar"></div>
+        </div>
+        <div class="label" id="progress-text">0%</div>
+      </div>
+      
+      <div class="card">
+        <div class="label">Success Rate</div>
+        <div class="stat" id="success-rate">0%</div>
+        <div class="label" id="success-detail">0 successful / 0 total</div>
+      </div>
+      
+      <div class="card">
+        <div class="label">Processing Speed</div>
+        <div class="stat" id="processing-speed">0</div>
+        <div class="label">songs/minute</div>
+      </div>
+      
+      <div class="card">
+        <div class="label">Languages</div>
+        <div id="language-stats" style="margin-top: 10px;">
+          <div>Telugu: <span id="telugu-count">0</span></div>
+          <div>Hindi: <span id="hindi-count">0</span></div>
+          <div>Kannada: <span id="kannada-count">0</span></div>
+          <div>Tamil: <span id="tamil-count">0</span></div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="tabs">
+      <div class="tab active" data-tab="songs">Recent Songs</div>
+      <div class="tab" data-tab="logs">Logs</div>
+      <div class="tab" data-tab="settings">Settings</div>
+    </div>
+    
+    <div class="tab-content active" id="songs-tab">
+      <div class="language-filter">
+        <button class="active" data-language="all">All</button>
+        <button data-language="telugu">Telugu</button>
+        <button data-language="hindi">Hindi</button>
+        <button data-language="kannada">Kannada</button>
+        <button data-language="tamil">Tamil</button>
+      </div>
+      
+      <div class="card songs-list" id="songs-list">
+        <!-- Songs will be added here dynamically -->
+      </div>
+    </div>
+    
+    <div class="tab-content" id="logs-tab">
+      <div class="log-container">
+        <ul class="log" id="log-list">
+          <!-- Logs will be added here dynamically -->
+        </ul>
+      </div>
+    </div>
+    
+    <div class="tab-content" id="settings-tab">
+      <div class="card">
+        <h2>Monitor Settings</h2>
+        <div style="margin-bottom: 1rem;">
+          <label for="refresh-rate">Data Refresh Rate (seconds):</label>
+          <input type="number" id="refresh-rate" min="1" max="60" value="5">
+          <button id="save-settings">Save</button>
+        </div>
+        
+        <h2>Script Control</h2>
+        <div>
+          <button id="start-script" disabled>Start Script</button>
+          <button id="stop-script" disabled>Stop Script</button>
+          <p><i>Note: Script control requires server-side integration.</i></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Sample data for demonstration
+    const mockData = {
+      totalSongs: 250,
+      processedSongs: 0,
+      successfulSongs: 0,
+      failedSongs: 0,
+      startTime: new Date(),
+      languages: {
+        telugu: 0,
+        hindi: 0,
+        kannada: 0,
+        tamil: 0
+      },
+      recentSongs: [],
+      logs: []
+    };
+
+    // Log types for styling
+    const LOG_INFO = 'info';
+    const LOG_SUCCESS = 'success';
+    const LOG_ERROR = 'error';
+
+    // Mock song processing status
+    const STATUS_PROCESSING = 'processing';
+    const STATUS_SUCCESS = 'success';
+    const STATUS_ERROR = 'error';
+
+    // DOM elements
+    const processedCount = document.getElementById('processed-count');
+    const progressBar = document.getElementById('progress-bar');
+    const progressText = document.getElementById('progress-text');
+    const successRate = document.getElementById('success-rate');
+    const successDetail = document.getElementById('success-detail');
+    const processingSpeed = document.getElementById('processing-speed');
+    const languageCount = {
+      telugu: document.getElementById('telugu-count'),
+      hindi: document.getElementById('hindi-count'),
+      kannada: document.getElementById('kannada-count'),
+      tamil: document.getElementById('tamil-count')
+    };
+    const songsList = document.getElementById('songs-list');
+    const logList = document.getElementById('log-list');
+    
+    // Tab handling
+    const tabs = document.querySelectorAll('.tab');
+    const tabContents = document.querySelectorAll('.tab-content');
+    
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        const tabId = tab.getAttribute('data-tab');
+        
+        // Update active tab
+        tabs.forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        
+        // Show active content
+        tabContents.forEach(content => {
+          content.classList.remove('active');
+          if (content.id === `${tabId}-tab`) {
+            content.classList.add('active');
+          }
+        });
+      });
+    });
+    
+    // Language filter
+    const languageFilters = document.querySelectorAll('.language-filter button');
+    let activeLanguageFilter = 'all';
+    
+    languageFilters.forEach(filter => {
+      filter.addEventListener('click', () => {
+        const language = filter.getAttribute('data-language');
+        activeLanguageFilter = language;
+        
+        // Update active filter
+        languageFilters.forEach(f => f.classList.remove('active'));
+        filter.classList.add('active');
+        
+        // Update song list
+        updateSongsList();
+      });
+    });
+    
+    // Settings
+    const refreshRateInput = document.getElementById('refresh-rate');
+    const saveSettingsBtn = document.getElementById('save-settings');
+    let refreshRate = 5; // Default 5 seconds
+    
+    saveSettingsBtn.addEventListener('click', () => {
+      refreshRate = parseInt(refreshRateInput.value, 10);
+      addLog(`Refresh rate updated to ${refreshRate} seconds`, LOG_INFO);
+      clearInterval(dataRefreshInterval);
+      dataRefreshInterval = setInterval(fetchData, refreshRate * 1000);
+    });
+    
+    // Helper functions
+    function updateDashboard() {
+      // Update counts and progress
+      processedCount.textContent = mockData.processedSongs;
+      const progress = (mockData.processedSongs / mockData.totalSongs) * 100;
+      progressBar.style.width = `${progress}%`;
+      progressText.textContent = `${progress.toFixed(1)}%`;
+      
+      // Update success rate
+      const rate = mockData.processedSongs > 0 
+        ? (mockData.successfulSongs / mockData.processedSongs) * 100 
+        : 0;
+      successRate.textContent = `${rate.toFixed(1)}%`;
+      successDetail.textContent = `${mockData.successfulSongs} successful / ${mockData.processedSongs} total`;
+      
+      // Calculate processing speed (songs per minute)
+      const elapsedMinutes = (new Date() - mockData.startTime) / 60000;
+      const speed = elapsedMinutes > 0 ? (mockData.processedSongs / elapsedMinutes) : 0;
+      processingSpeed.textContent = speed.toFixed(1);
+      
+      // Update language counts
+      for (const lang in mockData.languages) {
+        languageCount[lang].textContent = mockData.languages[lang];
+      }
+    }
+    
+    function updateSongsList() {
+      songsList.innerHTML = '';
+      
+      const filteredSongs = activeLanguageFilter === 'all'
+        ? mockData.recentSongs
+        : mockData.recentSongs.filter(song => song.language === activeLanguageFilter);
+      
+      filteredSongs.forEach(song => {
+        const songItem = document.createElement('div');
+        songItem.className = 'song-item';
+        
+        let statusClass = '';
+        switch(song.status) {
+          case STATUS_PROCESSING: statusClass = 'status-processing'; break;
+          case STATUS_SUCCESS: statusClass = 'status-success'; break;
+          case STATUS_ERROR: statusClass = 'status-error'; break;
+        }
+        
+        songItem.innerHTML = `
+          <div>
+            <strong>${song.title}</strong> - ${song.artist}<br>
+            <small>${song.movie} (${song.language})</small>
+          </div>
+          <div>
+            <span class="status-badge ${statusClass}">${song.status}</span>
+          </div>
+        `;
+        
+        songsList.appendChild(songItem);
+      });
+      
+      if (filteredSongs.length === 0) {
+        songsList.innerHTML = '<div style="padding: 1rem; text-align: center; color: #666;">No songs processed yet</div>';
+      }
+    }
+    
+    function addSong(song) {
+      // Add to beginning and limit to recent 50
+      mockData.recentSongs.unshift(song);
+      if (mockData.recentSongs.length > 50) {
+        mockData.recentSongs.pop();
+      }
+      
+      // Update language count
+      mockData.languages[song.language]++;
+      
+      // Update processed count and status
+      mockData.processedSongs++;
+      if (song.status === STATUS_SUCCESS) {
+        mockData.successfulSongs++;
+      } else if (song.status === STATUS_ERROR) {
+        mockData.failedSongs++;
+      }
+      
+      updateSongsList();
+      updateDashboard();
+    }
+    
+    function addLog(message, type = LOG_INFO) {
+      const logItem = document.createElement('li');
+      logItem.className = `log-${type}`;
+      
+      const timestamp = new Date().toLocaleTimeString();
+      logItem.textContent = `[${timestamp}] ${message}`;
+      
+      logList.prepend(logItem);
+      
+      // Limit logs to recent 100
+      if (logList.children.length > 100) {
+        logList.removeChild(logList.lastChild);
+      }
+    }
+    
+    // Simulated data fetching
+    function fetchData() {
+      // This would normally be an API call to your backend
+      // For demo, we'll simulate song processing
+      
+      const languages = ['telugu', 'hindi', 'kannada', 'tamil'];
+      const statuses = [STATUS_SUCCESS, STATUS_SUCCESS, STATUS_SUCCESS, STATUS_ERROR];
+      
+      // Simulate adding 1-3 songs per refresh
+      const songsToAdd = Math.floor(Math.random() * 3) + 1;
+      
+      for (let i = 0; i < songsToAdd; i++) {
+        if (mockData.processedSongs >= mockData.totalSongs) break;
+        
+        const language = languages[Math.floor(Math.random() * languages.length)];
+        const status = statuses[Math.floor(Math.random() * statuses.length)];
+        
+        const song = {
+          title: `Song ${mockData.processedSongs + 1}`,
+          artist: `Artist ${Math.floor(Math.random() * 10) + 1}`,
+          movie: `Movie ${Math.floor(Math.random() * 20) + 1}`,
+          language: language,
+          status: status
+        };
+        
+        addSong(song);
+        
+        if (status === STATUS_SUCCESS) {
+          addLog(`✅ Processed "${song.title}" from ${song.movie} (${song.language})`, LOG_SUCCESS);
+        } else {
+          addLog(`❌ Failed to process "${song.title}" - YouTube download error`, LOG_ERROR);
+        }
+      }
+      
+      // Add some random logs occasionally
+      if (Math.random() > 0.7) {
+        const logMessages = [
+          'Switching to Spotify client #2',
+          'Rate limit reached, backing off for 10 seconds',
+          'Successfully extracted audio features',
+          'No results found for movie "Unknown Movie"',
+          'Processing batch complete'
+        ];
+        
+        addLog(logMessages[Math.floor(Math.random() * logMessages.length)], LOG_INFO);
+      }
+    }
+    
+    // Initialize
+    let dataRefreshInterval = setInterval(fetchData, refreshRate * 1000);
+    
+    // Initial fetch
+    addLog('🚀 Monitoring script started', LOG_INFO);
+    fetchData();
+    
+    // Connection status simulation (for realism)
+    setInterval(() => {
+      if (Math.random() > 0.95) {
+        addLog('⚠️ Connection to script temporarily lost, retrying...', LOG_ERROR);
+        setTimeout(() => {
+          addLog('✅ Connection restored', LOG_SUCCESS);
+        }, 2000);
+      }
+    }, 30000);
+  </script>
+</body>
+</html>

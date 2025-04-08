@@ -1,5 +1,7 @@
-Flask
-spotipy
+flask
 pandas
-plotly
-gunicorn
+spotipy
+yt-dlp
+librosa
+numpy
+youtubesearchpython

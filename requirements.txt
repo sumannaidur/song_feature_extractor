@@ -4,4 +4,4 @@ spotipy
 yt-dlp
 librosa
 numpy
-youtubesearchpython
+youtube-search-python

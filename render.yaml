@@ -1,19 +1,7 @@
 services:
   - type: web
-    name: indian-movie-tracks
+    name: music-pipeline-dashboard
     env: python
-    buildCommand: ""
-    startCommand: gunicorn app:app
-    envVars:
-      - key: SPOTIFY_CLIENT_ID_1
-        value: your_id_1
-      - key: SPOTIFY_CLIENT_SECRET_1
-        value: your_secret_1
-      - key: SPOTIFY_CLIENT_ID_2
-        value: your_id_2
-      - key: SPOTIFY_CLIENT_SECRET_2
-        value: your_secret_2
-      - key: SPOTIFY_CLIENT_ID_3
-        value: your_id_3
-      - key: SPOTIFY_CLIENT_SECRET_3
-        value: your_secret_3
+    buildCommand: pip install -r requirements.txt
+    startCommand: python app.py
+    plan: free

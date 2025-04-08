@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 from datetime import datetime
 from spotipy.oauth2 import SpotifyOAuth, SpotifyClientCredentials
-from youtubesearchpython import VideosSearch
+from youtube_search_python import VideosSearch
 
 class MusicFeatureExtractor:
     def __init__(self, credentials_list, output_csv="song_features_combined.csv"):
